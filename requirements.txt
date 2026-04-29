@@ -1,0 +1,7 @@
+torch>=2.0
+transformers>=4.40
+datasets>=2.18
+scikit-learn
+huggingface_hub
+sentencepiece>=0.2.0
+accelerate

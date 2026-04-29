@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Training artifacts
+checkpoints/
+data/
+wandb/
+runs/
+logs/
+*.log
+
+# HuggingFace cache
+.cache/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Secrets
+.env
+*.key

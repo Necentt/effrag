@@ -10,11 +10,11 @@ env/
 *.egg-info/
 
 # Training artifacts
-checkpoints/
-data/
-wandb/
-runs/
-logs/
+/checkpoints/
+/data/
+/wandb/
+/runs/
+/logs/
 *.log
 
 # HuggingFace cache

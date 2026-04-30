@@ -6,7 +6,7 @@ Usage:
         --train_data data/efficient_rag/labeler/train.jsonl \
         --val_data data/efficient_rag/labeler/val.jsonl \
         --output_dir checkpoints/labeler \
-        --model_name microsoft/deberta-v3-large \
+        --model_name microsoft/mdeberta-v3-base \
         --num_labels 2 \
         --max_length 384 \
         --epochs 2 \
@@ -18,7 +18,6 @@ import argparse
 from typing import Optional
 
 import numpy as np
-import torch
 from sklearn.metrics import accuracy_score, f1_score
 from transformers import (
     AutoTokenizer,
@@ -78,7 +77,7 @@ def train_labeler(
     train_data: str,
     val_data: Optional[str],
     output_dir: str,
-    model_name: str = "microsoft/deberta-v3-large",
+    model_name: str = "microsoft/mdeberta-v3-base",
     num_labels: int = 2,
     max_length: int = 384,
     epochs: int = 2,
@@ -91,7 +90,9 @@ def train_labeler(
     """Train the Labeler model."""
 
     tag_mapping = TAG_MAPPING_TWO if num_labels == 2 else TAG_MAPPING_THREE
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # use_fast=False — для mdeberta-v3 fast tokenizer ломает byte fallback
+    # и может производить токены за границей vocab → CUDA assert
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
 
     # Load datasets
     train_dataset = LabelerDataset(
@@ -137,6 +138,9 @@ def train_labeler(
         save_strategy="epoch",
         logging_steps=50,
         load_best_model_at_end=bool(val_dataset),
+        metric_for_best_model="f1_macro" if val_dataset else None,
+        greater_is_better=True if val_dataset else None,
+        label_names=["sequence_labels"],
         report_to="none",
         remove_unused_columns=False,
     )
@@ -148,7 +152,8 @@ def train_labeler(
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
+        compute_metrics=compute_metrics if val_dataset else None,
     )
 
     trainer.train()
@@ -162,7 +167,7 @@ def main():
     parser.add_argument("--train_data", required=True, help="Path to training JSONL")
     parser.add_argument("--val_data", default=None, help="Path to validation JSONL")
     parser.add_argument("--output_dir", required=True, help="Output directory")
-    parser.add_argument("--model_name", default="microsoft/deberta-v3-large")
+    parser.add_argument("--model_name", default="microsoft/mdeberta-v3-base")
     parser.add_argument("--num_labels", type=int, default=2, choices=[2, 3])
     parser.add_argument("--max_length", type=int, default=384)
     parser.add_argument("--epochs", type=int, default=2)

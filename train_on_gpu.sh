@@ -5,16 +5,12 @@
 set -e
 
 # === 1. Зависимости ===
+# Для V100 (Volta sm_70) ставим torch с CUDA 11.8 wheels — самый стабильный вариант.
 echo "=== Installing dependencies ==="
-pip install -q \
-    torch transformers datasets \
-    scikit-learn huggingface_hub \
-    sentencepiece accelerate
+pip install -q --index-url https://download.pytorch.org/whl/cu118 torch==2.2.2
+pip install -q -r requirements.txt
 
 # === 2. Скачать код EfficientRAG ===
-# Вариант A: если код уже на сервере, пропускаем
-# Вариант B: клонируем из репозитория или копируем папку EfficientRAG/
-
 if [ ! -d "EfficientRAG" ]; then
     echo "ERROR: Папки EfficientRAG/ нет. Скопируй её на сервер."
     exit 1
@@ -28,7 +24,6 @@ python -c "
 from huggingface_hub import hf_hub_download
 import shutil
 
-# Labeler data
 p = hf_hub_download(
     repo_id='Necent/efficientrag-labeler-training-data',
     filename='train.jsonl',
@@ -37,7 +32,6 @@ p = hf_hub_download(
 shutil.copy(p, 'data/efficient_rag/labeler/train.jsonl')
 print('Labeler data downloaded')
 
-# Filter data
 p = hf_hub_download(
     repo_id='Necent/efficientrag-filter-training-data',
     filename='train.jsonl',

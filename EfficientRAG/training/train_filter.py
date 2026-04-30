@@ -6,7 +6,7 @@ Usage:
         --train_data data/efficient_rag/filter/train.jsonl \
         --val_data data/efficient_rag/filter/val.jsonl \
         --output_dir checkpoints/filter \
-        --model_name microsoft/deberta-v3-large \
+        --model_name microsoft/mdeberta-v3-base \
         --max_length 128 \
         --epochs 2 \
         --batch_size 32 \
@@ -69,12 +69,13 @@ class FilterTrainer(Trainer):
 def compute_metrics(eval_pred):
     """Compute token-level metrics for the Filter."""
     logits, labels = eval_pred
+    if isinstance(logits, tuple):
+        logits = logits[0]
     preds = np.argmax(logits, axis=-1)
 
-    # Flatten (only evaluate non-padding tokens; labels == -100 for padding in HF)
     flat_preds = preds.flatten()
     flat_labels = labels.flatten()
-    mask = flat_labels >= 0
+    mask = flat_labels != -100
     flat_preds = flat_preds[mask]
     flat_labels = flat_labels[mask]
 
@@ -90,7 +91,7 @@ def train_filter(
     train_data: str,
     val_data: Optional[str],
     output_dir: str,
-    model_name: str = "microsoft/deberta-v3-large",
+    model_name: str = "microsoft/mdeberta-v3-base",
     max_length: int = 128,
     epochs: int = 2,
     batch_size: int = 32,
@@ -101,7 +102,8 @@ def train_filter(
 ):
     """Train the Filter model."""
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # use_fast=False — для mdeberta-v3 fast tokenizer ломает byte fallback
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
 
     train_dataset = FilterDataset(
         data_path=train_data,
@@ -144,6 +146,9 @@ def train_filter(
         save_strategy="epoch",
         logging_steps=50,
         load_best_model_at_end=bool(val_dataset),
+        metric_for_best_model="f1" if val_dataset else None,
+        greater_is_better=True if val_dataset else None,
+        label_names=["token_labels"],
         report_to="none",
         remove_unused_columns=False,
     )
@@ -155,7 +160,8 @@ def train_filter(
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
+        compute_metrics=compute_metrics if val_dataset else None,
     )
 
     trainer.train()
@@ -169,7 +175,7 @@ def main():
     parser.add_argument("--train_data", required=True, help="Path to training JSONL")
     parser.add_argument("--val_data", default=None, help="Path to validation JSONL")
     parser.add_argument("--output_dir", required=True, help="Output directory")
-    parser.add_argument("--model_name", default="microsoft/deberta-v3-large")
+    parser.add_argument("--model_name", default="microsoft/mdeberta-v3-base")
     parser.add_argument("--max_length", type=int, default=128)
     parser.add_argument("--epochs", type=int, default=2)
     parser.add_argument("--batch_size", type=int, default=32)
